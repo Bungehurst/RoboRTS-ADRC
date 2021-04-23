@@ -29,7 +29,8 @@ float adrc_fal(float e, float alpha, float delta)
 {
 	if(fabsf(e) <= delta){
 		return e / (powf(delta, 1.0f-alpha));
-	}else{
+	}else
+	{
 		return powf(fabsf(e), alpha) * adrc_sign(e);
 	}
 }
