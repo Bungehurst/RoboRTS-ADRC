@@ -21,14 +21,14 @@
 
 static int32_t gimbal_set_yaw_gyro_angle(struct gimbal *gimbal, float yaw, uint8_t mode);
 static int16_t gimbal_get_ecd_angle(int16_t raw_ecd, int16_t center_offset);
-#define w0 (float)5
+#define w0 5.0f
 //航向角pid控制，航向角速度adrc控制
 ADRC_TD_Def yaw_adrc_td = {
     .v1 = 0.0f,
     .v2 = 0.0f,
-    .r0 = 1800,
+    .r0 = 1800, //跟踪速度因子，越大跟踪越快
     .h0 = 0.03, //若不考虑噪声滤波，h0可以与h相同
-    .h = 0.01
+    .h = 0.01 // control period
 };
 
 ADRC_ESO_Def yaw_adrc_eso = {
@@ -106,15 +106,6 @@ int32_t gimbal_cascade_init(struct gimbal *gimbal, const char *name,
 		
     pid_struct_init(&(gimbal->pitch_outer_pid), pitch_inter_param.max_out, pitch_outer_param.integral_limit, pitch_outer_param.p, pitch_outer_param.i, pitch_outer_param.d);
     pid_struct_init(&(gimbal->pitch_inter_pid), pitch_inter_param.max_out, pitch_inter_param.integral_limit, pitch_inter_param.p, pitch_inter_param.i, pitch_inter_param.d);
-		
-    // adrc init
-//    adrc_td_init(&(gimbal->yaw_adrc_td), gimbal->yaw_adrc_td.h, gimbal->yaw_adrc_td.r0, gimbal->yaw_adrc_td.h0);
-//    adrc_td_control_init(&(gimbal->yaw_adrc_td_controller), gimbal->yaw_adrc_td_controller.h, gimbal->yaw_adrc_td_controller.r2, gimbal->yaw_adrc_td_controller.h2);
-//    adrc_eso_init(&(gimbal->yaw_adrc_eso), gimbal->yaw_adrc_eso.h, gimbal->yaw_adrc_eso.beta1, gimbal->yaw_adrc_eso.beta2, gimbal->yaw_adrc_eso.beta3, \
-//                                                                                    gimbal->yaw_adrc_eso.alpha1, gimbal->yaw_adrc_eso.alpha2, \
-//                                                                                    gimbal->yaw_adrc_eso.delta1, gimbal->yaw_adrc_eso.delta2, \
-//                                                                                    gimbal->yaw_adrc_eso.b0);
-//    adrc_nlsef_init(&(gimbal->yaw_adrc_nlsef), gimbal->yaw_adrc_nlsef.h, gimbal->yaw_adrc_nlsef.r1, gimbal->yaw_adrc_nlsef.h1, gimbal->yaw_adrc_nlsef.c);
 
     return E_OK;
 }
@@ -351,32 +342,23 @@ int32_t gimbal_cascade_calculate(struct gimbal *gimbal)
         center_offset = gimbal->sensor.gyro_angle.yaw - gimbal->ecd_angle.yaw;
 
         VAL_LIMIT(gimbal->gyro_target_angle.yaw, YAW_ANGLE_MIN + center_offset, YAW_ANGLE_MAX + center_offset);
-        
-//				outer_out = pid_calculate(&(gimbal->yaw_outer_pid), yaw_fdb, gimbal->gyro_target_angle.yaw);
-//				adrc_td(&yaw_adrc_td, outer_out);
-//        adrc_eso(&yaw_adrc_eso, gimbal->sensor.rate.yaw_rate);
-//        float e1 = yaw_adrc_td.v1 - yaw_adrc_eso.z1;
-//        float e2 = yaw_adrc_td.v2 - yaw_adrc_eso.z2;
-//        yaw_adrc_eso.u = adrc_nlsef_partial(&yaw_adrc_nlsef, &yaw_adrc_eso, e1, e2);
-//        motor_out = yaw_adrc_eso.u;
-				
+		
 
     }
     else
     {
         yaw_fdb = gimbal->ecd_angle.yaw;
         VAL_LIMIT(gimbal->ecd_target_angle.yaw, YAW_ANGLE_MIN, YAW_ANGLE_MAX);
-    
+        motor_out = adrc_calculate(&yaw_adrc_td, &yaw_adrc_eso, &yaw_adrc_nlsef, gimbal->ecd_target_angle.yaw, yaw_fdb);
         // outer_out = pid_calculate(&(gimbal->yaw_outer_pid), yaw_fdb, gimbal->ecd_target_angle.yaw);
-        adrc_td(&yaw_adrc_td, gimbal->ecd_target_angle.yaw);
-        adrc_eso(&yaw_adrc_eso, yaw_fdb);
-        float e1 = yaw_adrc_td.v1 - yaw_adrc_eso.z1;
-        float e2 = yaw_adrc_td.v2 - yaw_adrc_eso.z2;
-        yaw_adrc_eso.u = adrc_nlsef_partial(&yaw_adrc_nlsef, &yaw_adrc_eso, e1, e2);
-        motor_out = yaw_adrc_eso.u;
+        // adrc_td(&yaw_adrc_td, gimbal->ecd_target_angle.yaw);
+        // adrc_eso(&yaw_adrc_eso, yaw_fdb);
+        // float e1 = yaw_adrc_td.v1 - yaw_adrc_eso.z1;
+        // float e2 = yaw_adrc_td.v2 - yaw_adrc_eso.z2;
+        // yaw_adrc_eso.u = adrc_nlsef_partial(&yaw_adrc_nlsef, &yaw_adrc_eso, e1, e2);
+        // motor_out = yaw_adrc_eso.u;
     }
     
-    // motor_out = pid_calculate(&(gimbal->yaw_inter_pid), gimbal->sensor.rate.yaw_rate, outer_out);
     motor_set_current(&(gimbal->yaw_motor), (int16_t)YAW_MOTOR_POSITIVE_DIR * motor_out);
 
     if (gimbal->mode.bit.pitch_mode == GYRO_MODE)
