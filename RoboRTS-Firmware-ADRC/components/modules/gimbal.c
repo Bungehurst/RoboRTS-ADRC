@@ -21,6 +21,7 @@
 
 static int32_t gimbal_set_yaw_gyro_angle(struct gimbal *gimbal, float yaw, uint8_t mode);
 static int16_t gimbal_get_ecd_angle(int16_t raw_ecd, int16_t center_offset);
+
 #define w0 5.0f
 //航向角pid控制，航向角速度adrc控制
 ADRC_TD_Def yaw_adrc_td = {
