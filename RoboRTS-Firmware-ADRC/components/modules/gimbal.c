@@ -42,8 +42,8 @@ ADRC_ESO_Def yaw_adrc_eso = {
     .beta3 = 20, 
     .alpha1 = 0.5,
     .alpha2 = 0.25,
-    .delta1 = 0.5,
-    .delta2 = 0.5,
+    .delta1 = 0.1,  //0 < delta1 < 1
+    .delta2 = 0.05, //0 < delta2 < 1
     .b0 = 0.1
 };
 
